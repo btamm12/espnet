@@ -22,6 +22,7 @@ create_adapter_fn_table = {
 @typechecked
 def create_adapter(
     model: torch.nn.Module,
+    save_strategy: str,
     adapter: str,
     adapter_conf: dict,
 ):
@@ -37,4 +38,4 @@ def create_adapter(
     """
     assert adapter in create_adapter_fn_table, f"Adapter {adapter} is not supported."
     create_adapter_fn = create_adapter_fn_table[adapter]
-    create_adapter_fn(model=model, **adapter_conf)
+    create_adapter_fn(model=model, save_strategy=save_strategy, **adapter_conf)

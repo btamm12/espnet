@@ -1282,7 +1282,7 @@ class AbsTask(ABC):
 
             # Use adapter to finetune the large pre-trained foundation models
             if getattr(args, "use_adapter", False):
-                create_adapter(model, args.adapter, args.adapter_conf)
+                create_adapter(model, args.save_strategy, args.adapter, args.adapter_conf)
 
             # 3. Build optimizer
             optimizers = cls.build_optimizers(args, model=model)
@@ -2094,10 +2094,25 @@ class AbsTask(ABC):
             )
         model.to(device)
 
+        # Load pre-trained weights if checkpoint only contains adapter weights.
+        if args.save_strategy == "adapter_only":
+            for p in args.init_param:
+                logging.info(f"Loading pretrained params from {p}")
+                load_pretrained_model(
+                    model=model,
+                    init_param=p,
+                    ignore_init_mismatch=args.ignore_init_mismatch,
+                    map_location=(
+                        f"cuda:{torch.cuda.current_device()}"
+                        if device == "cuda"
+                        else "cpu"
+                    ),
+                )
+
         # For finetuned model, create adapter
         use_adapter = getattr(args, "use_adapter", False)
         if use_adapter:
-            create_adapter(model, args.adapter, args.adapter_conf)
+            create_adapter(model, args.save_strategy, args.adapter, args.adapter_conf)
 
         if model_file is not None:
             if device == "cuda":

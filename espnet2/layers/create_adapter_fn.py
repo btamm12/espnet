@@ -42,6 +42,7 @@ except ImportError:
 @typechecked
 def create_houlsby_adapter(
     model: torch.nn.Module,
+    save_strategy: str, # unused
     bottleneck: int = 32,
     target_layers: List[int] = [],
 ):
@@ -85,6 +86,7 @@ def create_houlsby_adapter(
 @typechecked
 def create_lora_adapter(
     model: torch.nn.Module,
+    save_strategy: str,
     rank: int = 8,
     alpha: int = 8,
     dropout_rate: float = 0.0,
@@ -145,10 +147,27 @@ def create_lora_adapter(
             f"Target modules {target_modules} not found in the base model."
         )
 
-    # Set the model (originally in train mode) to eval mode
-    # This step can avoid merging LoRA weights again
-    # when loading pre-trained checkpoints
-    model.eval()
+    # Training checkpoint are saved in eval() mode, so it is crucial how the
+    # the weights are loaded and in which mode the model is set.
+    #
+    # See here for more details: https://github.com/espnet/espnet/pull/5722
+    #
+    # If checkpoint == full_weights, then model should already be in eval() mode.
+    #   1. model created
+    #   2. LoRA adapters inserted
+    #   3. model.eval() - merging has no effect since LoRA is still zeros
+    #   4. merged full weights + LoRA loaded from checkpoint
+    #   5. decoding starts: model.eval() already called, good to go!
+    # 
+    # If checkpoint == lora_only, then model should stay in train() mode here.
+    #   1. model created
+    #   2. pre-trained weights loaded
+    #   3. LoRA adapters inserted
+    #   4. LoRA loaded from checkpoint
+    #   5. decoding starts: model.eval() - LoRA weights merged into pre-trained
+    #      weights, good to go!
+    if save_strategy != "adapter_only":
+        model.eval()
 
 
 @typechecked
